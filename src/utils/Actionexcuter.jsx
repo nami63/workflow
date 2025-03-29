@@ -12,59 +12,105 @@ export const executeAction = async (action, stateSetters) => {
   try {
     switch (action.type) {
       case 'alert':
-        alert(config.message || 'Alert!');
+        // Show alert with message from config
+        const alertMessage = config.message || 'Alert!';
+        
+        // Display the alert
+        alert(alertMessage);
+        
+        // Optionally log the alert in the output area
+        if (config.showInOutput) {
+          setOutputElements(prev => [
+            ...prev, 
+            {
+              type: 'text',
+              id: `alert-message-${Date.now()}`,
+              content: `Alert shown: "${alertMessage}"`,
+              style: config.style || { fontStyle: 'italic', color: '#555' }
+            }
+          ]);
+        }
         break;
         
       case 'showText':
+        // Show text in the output area
+        const textToShow = config.text || 'Text';
+        
         setOutputElements(prev => [
           ...prev, 
           {
             type: 'text',
             id: `text-${Date.now()}`,
-            content: config.text || 'Text',
+            content: textToShow,
             style: config.style || {}
           }
         ]);
         break;
         
       case 'showImage':
-        if (config.url) {
+        // Display image in the output area
+        const imageUrl = config.url || '';
+        
+        // Check if we have a valid URL
+        if (imageUrl && imageUrl.trim() !== '') {
           setOutputElements(prev => [
             ...prev, 
             {
               type: 'image',
               id: `img-${Date.now()}`,
-              url: config.url,
+              url: imageUrl,
               alt: config.alt || 'Image',
               width: config.width,
-              height: config.height
+              height: config.height,
+              style: config.style || {}
             }
           ]);
+          
+          // Optionally show URL text below the image
+          if (config.showUrl) {
+            setOutputElements(prev => [
+              ...prev, 
+              {
+                type: 'text',
+                id: `img-url-${Date.now()}`,
+                content: `Image URL: ${imageUrl}`,
+                style: { fontSize: '0.8em', color: '#555' }
+              }
+            ]);
+          }
         } else {
-          console.warn('Image URL is required for showImage action');
+          // Show error if no image URL is provided
+          setOutputElements(prev => [
+            ...prev, 
+            {
+              type: 'text',
+              id: `img-error-${Date.now()}`,
+              content: 'No image URL provided',
+              style: { color: 'red' }
+            }
+          ]);
         }
         break;
         
       case 'refreshPage':
-        if (config.confirmFirst) {
-          if (window.confirm('Are you sure you want to refresh the page?')) {
-            window.location.reload();
-          }
-        } else {
-          window.location.reload();
-        }
+        window.location.reload();
         break;
         
       case 'setLocalStorage':
-        if (config.key) {
+        // Simple localStorage setting
+        const storageKey = config.key;
+        const storageValue = config.value || '';
+        
+        if (storageKey) {
           try {
-            localStorage.setItem(config.key, config.value || '');
+            localStorage.setItem(storageKey, storageValue);
             setOutputElements(prev => [
               ...prev, 
               {
                 type: 'text',
                 id: `storage-set-${Date.now()}`,
-                content: `Successfully saved "${config.value || ''}" to key "${config.key}"`
+                content: `Successfully saved "${storageValue}" to key "${storageKey}"`,
+                style: { color: 'green' }
               }
             ]);
           } catch (error) {
@@ -78,21 +124,22 @@ export const executeAction = async (action, stateSetters) => {
               }
             ]);
           }
-        } else {
-          console.error('Key is required for setLocalStorage action');
         }
         break;
         
       case 'getLocalStorage':
-        if (config.key) {
+        // Simple localStorage retrieval
+        const keyToRetrieve = config.key;
+        
+        if (keyToRetrieve) {
           try {
-            const value = localStorage.getItem(config.key);
+            const value = localStorage.getItem(keyToRetrieve);
             setOutputElements(prev => [
               ...prev, 
               {
                 type: 'text',
                 id: `storage-get-${Date.now()}`,
-                content: `${config.key}: ${value !== null ? value : 'Key not found'}`,
+                content: `${keyToRetrieve}: ${value !== null ? value : 'Key not found'}`,
                 style: config.style || {}
               }
             ]);
@@ -107,34 +154,21 @@ export const executeAction = async (action, stateSetters) => {
               }
             ]);
           }
-        } else {
-          console.error('Key is required for getLocalStorage action');
         }
         break;
         
       case 'increaseButtonSize':
         const amount = parseInt(config.amount) || 5;
-        setButtonSize(prev => {
-          const newSize = prev + amount;
-          // Optionally add max size limit
-          return config.maxSize ? Math.min(newSize, config.maxSize) : newSize;
-        });
+        setButtonSize(prev => prev + amount);
         break;
         
       case 'closeWindow':
-        if (config.confirmFirst) {
-          if (window.confirm('Are you sure you want to close this window?')) {
-            window.close();
-          }
-        } else {
-          window.close();
-        }
+        window.close();
         break;
         
       case 'promptAndShow':
         const promptMessage = config.question || 'Enter something:';
-        const defaultValue = config.defaultValue || '';
-        const response = prompt(promptMessage, defaultValue);
+        const response = prompt(promptMessage);
         
         if (response !== null) {
           setOutputElements(prev => [
@@ -142,36 +176,19 @@ export const executeAction = async (action, stateSetters) => {
             {
               type: 'text',
               id: `prompt-response-${Date.now()}`,
-              content: config.displayFormat 
-                ? config.displayFormat.replace('{response}', response)
-                : `Response: ${response}`,
+              content: `Response: ${response}`,
               style: config.style || {}
             }
           ]);
-          
-          // Optionally save to state or call callback
-          if (config.saveToKey && config.saveToKey.trim() !== '') {
-            try {
-              localStorage.setItem(config.saveToKey, response);
-            } catch (error) {
-              console.error('Error saving prompt response to localStorage:', error);
-            }
-          }
         }
         break;
         
       case 'changeButtonColor':
-        if (config.color) {
-          setButtonColor(config.color);
-        } else if (config.random) {
-          // Better random color generation with proper hex padding
-          const randomColor = `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`;
-          setButtonColor(randomColor);
-        }
+        setButtonColor(config.color || '#ff0000');
         break;
         
       case 'disableButton':
-        setButtonDisabled(!!config.disabled);
+        setButtonDisabled(true);
         
         // Optional timer to re-enable the button
         if (config.disableDuration && typeof config.disableDuration === 'number') {
@@ -181,34 +198,15 @@ export const executeAction = async (action, stateSetters) => {
         }
         break;
 
-      case 'delay':
-        // Add explicit delay action
-        const delayTime = parseInt(config.duration) || 1000;
-        await new Promise(resolve => setTimeout(resolve, delayTime));
-        break;
-        
       default:
         console.warn(`Unknown action type: ${action.type}`);
     }
     
-    // Configurable delay between actions
-    const actionDelay = config.actionDelay !== undefined ? parseInt(config.actionDelay) : 100;
-    return new Promise(resolve => setTimeout(resolve, actionDelay));
+    // Small delay between actions
+    return new Promise(resolve => setTimeout(resolve, 200));
     
   } catch (error) {
     console.error(`Error executing action ${action.type}:`, error);
-    // Optionally display error in UI
-    if (config.showErrors) {
-      setOutputElements(prev => [
-        ...prev, 
-        {
-          type: 'text',
-          id: `error-${Date.now()}`,
-          content: `Error: ${error.message}`,
-          style: { color: 'red' }
-        }
-      ]);
-    }
     return Promise.resolve(); // Continue execution despite errors
   }
 };
