@@ -10,10 +10,21 @@ const ConfigPage = () => {
   const [currentWorkflow, setCurrentWorkflow] = useState('');
   
   useEffect(() => {
-    // Load saved workflows from localStorage
+    // Load saved workflows from localStorage on refresh
     const storedWorkflows = localStorage.getItem('workflows');
+    const savedCurrentWorkflow = localStorage.getItem('currentWorkflow');
+    
     if (storedWorkflows) {
-      setWorkflows(JSON.parse(storedWorkflows));
+      const parsedWorkflows = JSON.parse(storedWorkflows);
+      setWorkflows(parsedWorkflows);
+
+      // Automatically load the last used workflow
+      if (savedCurrentWorkflow) {
+        const workflow = parsedWorkflows.find(w => w.id === savedCurrentWorkflow);
+        if (workflow) {
+          loadWorkflow(savedCurrentWorkflow);
+        }
+      }
     }
   }, []);
   
@@ -24,11 +35,10 @@ const ConfigPage = () => {
     const newAction = {
       id: `${actionType}_${Date.now()}`,
       type: actionType,
-      name: action.name,  // Keep the original action name
+      name: action.name,
       config: {}
     };
     
-    // Set default values if any
     action.fields.forEach(field => {
       if (field.defaultValue !== undefined) {
         newAction.config[field.key] = field.defaultValue;
@@ -62,23 +72,35 @@ const ConfigPage = () => {
       alert('Please provide a button label');
       return;
     }
-    
-    const workflowName = prompt('Enter a name for this workflow:');
-    if (!workflowName) return;
-    
+
+    // If saving for the first time or creating a new workflow, ask for the name
+    let workflowName = '';
+
+    if (!currentWorkflow) {
+      workflowName = prompt('Enter a name for this workflow:');
+      if (!workflowName) return;
+    } else {
+      // If updating an existing workflow, use its current name
+      const existingWorkflow = workflows.find(w => w.id === currentWorkflow);
+      workflowName = existingWorkflow ? existingWorkflow.name : 'Unnamed Workflow';
+    }
+
     const newWorkflow = {
-      id: Date.now().toString(),
+      id: currentWorkflow || Date.now().toString(),
       name: workflowName,
       buttonLabel,
       actions
     };
     
-    const updatedWorkflows = [...workflows, newWorkflow];
+    const updatedWorkflows = currentWorkflow
+      ? workflows.map(w => (w.id === currentWorkflow ? newWorkflow : w))  // Update existing
+      : [...workflows, newWorkflow];  // Add new workflow
+
     setWorkflows(updatedWorkflows);
     localStorage.setItem('workflows', JSON.stringify(updatedWorkflows));
     localStorage.setItem('currentWorkflow', newWorkflow.id);
     setCurrentWorkflow(newWorkflow.id);
-    
+
     alert(`Workflow "${workflowName}" saved!`);
   };
   
@@ -106,6 +128,13 @@ const ConfigPage = () => {
       setCurrentWorkflow('');
       localStorage.removeItem('currentWorkflow');
     }
+  };
+
+  const createNewWorkflow = () => {
+    setCurrentWorkflow('');
+    setButtonLabel('Click Me!');
+    setActions([]);
+    alert('You are creating a new workflow. Please provide a name when saving.');
   };
   
   return (
@@ -144,13 +173,19 @@ const ConfigPage = () => {
           )}
         </div>
         
-        {/* Main buttons using the dynamic label */}
         <div className="flex space-x-4">
           <button 
             onClick={saveWorkflow}
             className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
           >
-            {buttonLabel}
+            Save Workflow
+          </button>
+
+          <button 
+            onClick={createNewWorkflow}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            New Workflow
           </button>
         </div>
       </div>
@@ -165,7 +200,7 @@ const ConfigPage = () => {
                 onClick={() => addAction(action.id)}
                 className="w-full text-left px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded"
               >
-                {action.name}  {/* Keep original action name */}
+                {action.name}
               </button>
             ))}
           </div>
